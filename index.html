@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="theme-color" content="#1c1c1c">
+<title>박솔 카메라</title>
+<!--
+  가족용 영구 링크 (중계 전용 페이지)
+
+  집 서버의 공개 주소(Cloudflare 무료 터널)는 PC 를 껐다 켤 때마다 새로 발급된다.
+  그래서 "안 바뀌는 주소"를 여기 두고, 열릴 때마다 집 서버에 현재 주소를 물어본
+  뒤 자동으로 넘긴다.
+
+  ⚠ 이 저장소는 공개다. 그래서 주소(열쇠 ?k=…)를 모르면 아무것도 알 수 없게
+     했다 — 열쇠는 이 파일이 아니라 "가족에게 준 링크"에만 들어 있고, 집 서버가
+     맞는지 확인한다. 열쇠가 없거나 틀리면 아래 안내만 뜬다.
+
+  ngrok 무료 경고("Visit Site")는 주소창 이동에만 뜨고, JS 요청은
+  ngrok-skip-browser-warning 헤더로 통과한다 → 가족은 클릭 0회.
+-->
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(110% 55% at 50% -8%, #242424 0%, transparent 60%), #1c1c1c;
+    color: #ececec;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    text-align: center; padding: 24px;
+  }
+  .box { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 340px; }
+  h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  h1 b { color: #f0b46b; }
+  p { margin: 0; font-size: 13px; color: #a3a3a3; line-height: 1.65; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #f0b46b;
+         box-shadow: 0 0 12px rgba(240,180,107,.6); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .25; transform: scale(.8); } }
+  .btn {
+    margin-top: 4px; display: inline-block; text-decoration: none;
+    border: 1px solid rgba(240,180,107,.4); background: rgba(240,180,107,.12);
+    color: #f0b46b; border-radius: 12px; padding: 11px 20px;
+    font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer;
+  }
+  .hide { display: none; }
+  .err { color: #ff7a76; font-weight: 700; }
+  .tip { font-size: 12px; color: #6e6e6e; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div class="box">
+  <span class="dot" id="dot"></span>
+  <h1>박솔 <b>카메라</b></h1>
+  <p id="msg">연결하는 중이에요…</p>
+  <button class="btn hide" id="retry">다시 시도</button>
+</div>
+<script>
+(function () {
+  var ASK = "https://wick-ribbon-player.ngrok-free.dev/slucam-stats/current-url";
+  var q = new URLSearchParams(location.search);
+  var key = q.get("k") || "";
+  var msg = document.getElementById("msg");
+  var dot = document.getElementById("dot");
+  var retry = document.getElementById("retry");
+  retry.addEventListener("click", go);
+
+  function stop(html, isErr) {
+    dot.style.animation = "none";
+    dot.style.background = isErr ? "#ff7a76" : "#6e6e6e";
+    dot.style.boxShadow = isErr ? "0 0 12px rgba(255,122,118,.6)" : "none";
+    msg.innerHTML = html;
+  }
+
+  // 홈 화면에 추가용 — 이 모드에서는 넘어가지 않고 멈춰 있는다.
+  if (q.get("home") === "1") {
+    stop(
+      "이 화면을 홈 화면에 추가하세요.<br><br>" +
+      '<span class="tip">아이폰: 공유 <b>⬆︎</b> → 홈 화면에 추가<br>' +
+      "안드로이드: 메뉴 <b>⋮</b> → 홈 화면에 추가</span><br><br>" +
+      "추가한 아이콘은 주소가 바뀌어도 계속 열립니다.",
+      false
+    );
+    return;
+  }
+
+  function go() {
+    retry.classList.add("hide");
+    dot.style.cssText = "";
+    msg.textContent = "연결하는 중이에요…";
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, 12000);
+    fetch(ASK + "?k=" + encodeURIComponent(key), {
+      headers: { "ngrok-skip-browser-warning": "true" },
+      cache: "no-store",
+      signal: ctl.signal
+    })
+      .then(function (r) {
+        clearTimeout(t);
+        if (r.status === 403) {
+          stop("링크가 올바르지 않아요.<br>가족에게 받은 링크를 그대로 열어주세요.", true);
+          return null;
+        }
+        return r.json();
+      })
+      .then(function (j) {
+        if (!j) return;
+        if (j.viewer) {
+          msg.textContent = "카메라 화면으로 이동합니다";
+          location.replace(j.viewer);
+        } else {
+          stop("카메라 서버는 켜져 있는데<br>공개 주소가 아직 준비되지 않았어요.<br>1분 뒤 다시 시도해 주세요.", true);
+          retry.classList.remove("hide");
+        }
+      })
+      .catch(function () {
+        clearTimeout(t);
+        stop('<span class="err">집 컴퓨터가 꺼져 있는 것 같아요.</span><br>컴퓨터가 켜져 있어야 카메라를 볼 수 있어요.', true);
+        retry.classList.remove("hide");
+      });
+  }
+  go();
+})();
+</script>
+</body>
+</html>
