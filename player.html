@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>slucam player</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    slu-stream { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+<!--
+  앱 전용 플레이어 페이지. 뷰어 앱(부모)과 같은 오리진에서 열리므로 부모가 iframe 안의
+  <video> 를 직접 다룰 수 있다(소리 켜고 끄기·무음 강제·재생 찔러주기). 영상 자체는
+  go2rtc 의 WebSocket(api/ws)에서 받는데, 그 주소는 ?ws= 로 받은 집 서버 오리진이다
+  (고정 주소 github.io 에서 열리면 집 서버와 오리진이 다르다 — go2rtc 의 api.origin "*").
+    ?src=<스트림 id>   ?ws=<집 서버 오리진, 예: https://xxx.trycloudflare.com> (비면 같은 오리진)
+-->
+<script type="module">
+  import "./slu-stream.js";
+  const q = new URLSearchParams(location.search);
+  const src = q.get("src") || "";
+  let ws = (q.get("ws") || "").replace(/\/+$/, "");
+  // 공개 주소에 올라가는 페이지라 아무 서버나 가리키게 두지 않는다 — 집 서버 형태만 허용
+  if (ws && !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(ws) && ws !== "http://127.0.0.1:8085") {
+    document.body.textContent = "";
+    throw new Error("허용되지 않은 ws 주소");
+  }
+  const el = document.createElement("slu-stream");
+  // 화면이 가려지면 5초 뒤 스스로 끊고 돌아오면 다시 붙는다(모바일 데이터 절약).
+  // 부모 앱도 20초 넘게 가려졌다 돌아오면 iframe 을 새로 붙인다 — 둘 다 있어도 무해.
+  el.background = false;
+  el.mode = "webrtc,mse,hls,mjpeg";
+  document.body.appendChild(el); // 여기서 <video>(무음) 가 만들어진다
+  el.src = `${ws}/cam/api/ws?src=${encodeURIComponent(src)}`; // ws 가 비면 "/cam/…" = 같은 오리진
+</script>
+</body>
+</html>
